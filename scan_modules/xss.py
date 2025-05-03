@@ -1,7 +1,7 @@
 from payloads.xss_payloads import xss_payloads
 import aiohttp
 
-async def scan_xss(session, url):
+async def scan_xss(session, url, proxy):
     results = []
     tasks = []
     
