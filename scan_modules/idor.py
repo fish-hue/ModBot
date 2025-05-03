@@ -2,7 +2,7 @@ from payloads.idor_payloads import idor_payloads
 import aiohttp
 import logging
 
-async def scan_idor(session, url):
+async def scan_idor(session, url, proxy):
     results = []
     for payload in idor_payloads:
         test_url = f"{url}?user_id={payload}"  # Attempting to modify user_id
