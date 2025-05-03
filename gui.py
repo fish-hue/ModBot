@@ -13,12 +13,18 @@ from scan_modules.idor import scan_idor
 class VulnerabilityScannerGUI:
     def __init__(self, root):
         self.root = root
-        root.title("ModBod Vulnerability Scanner")
+        root.title("ModBot Vulnerability Scanner")
 
         tk.Label(root, text="Enter URL:").pack()
 
         self.url_entry = tk.Entry(root, width=50)
         self.url_entry.pack()
+
+        self.proxy_label = tk.Label(root, text="Proxy (optional):")
+        self.proxy_label.pack()
+
+        self.proxy_entry = tk.Entry(root, width=50)
+        self.proxy_entry.pack()
 
         # Define and store checkbox variables
         self.sql_var = tk.BooleanVar(value=True)
@@ -57,6 +63,7 @@ class VulnerabilityScannerGUI:
 
     def start_scan(self):
         url = self.url_entry.get().strip()
+        proxy = self.proxy_entry.get().strip() or None
         if not url:
             messagebox.showerror("Input Error", "Please enter a valid URL.")
             return
@@ -75,14 +82,15 @@ class VulnerabilityScannerGUI:
         self.result_box.insert(tk.END, "[*] Scanning...\n")
         self.progress_bar.start()
 
-        asyncio.run(self.run_scan(url, selected_scans))
+        # Start the async scan
+        asyncio.run(self.run_scan(url, selected_scans, proxy))
 
-    async def run_scan(self, url, selected_scans):
+    async def run_scan(self, url, selected_scans, proxy):
         self.results.clear()
         async with aiohttp.ClientSession() as session:
             for scan in selected_scans:
                 try:
-                    scan_results = await scan(session, url)
+                    scan_results = await scan(session, url, proxy)
                     self.results.extend(scan_results)
                 except Exception as e:
                     self.results.append((url, f"Error during {scan.__name__}: {str(e)}"))
