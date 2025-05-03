@@ -1,7 +1,7 @@
 import aiohttp
 from payloads.cmdi_payloads import cmdi_payloads
 
-async def scan_cmdi(session, url):
+async def scan_cmdi(session, url, proxy):
     results = []
     tasks = []
 
