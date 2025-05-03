@@ -15,7 +15,7 @@ TRAVERSAL_SIGNATURES = [re.compile(r"root:"), re.compile(r"\[extensions\]")]
 async def scan_traversal(session, url, save_to_file=False):
     results = []
     # Prepare all test URLs in advance for efficient async handling
-    tasks = [scan_single_traversal(session, url, payload) for payload in traversal_payloads]
+    tasks = [scan_single_traversal(session, url, proxy, payload) for payload in traversal_payloads]
     
     # Await results for all tasks concurrently
     responses = await asyncio.gather(*tasks)
