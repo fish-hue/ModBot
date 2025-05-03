@@ -1,4 +1,5 @@
 import aiohttp
+import asyncio
 from payloads.cmdi_payloads import cmdi_payloads
 
 async def scan_cmdi(session, url, proxy):
