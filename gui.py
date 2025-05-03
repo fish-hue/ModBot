@@ -1,15 +1,16 @@
 import tkinter as tk
 from tkinter import messagebox, scrolledtext, filedialog
 from tkinter import ttk  # for Progressbar
+import webbrowser
 import asyncio
 import aiohttp
-import random
 
 from scan_modules.sql_injection import scan_sql_injection
 from scan_modules.xss import scan_xss
 from scan_modules.cmdi import scan_cmdi
 from scan_modules.traversal import scan_traversal
 from scan_modules.idor import scan_idor
+
 
 class VulnerabilityScannerGUI:
     def __init__(self, root):
@@ -27,11 +28,8 @@ class VulnerabilityScannerGUI:
         self.proxy_entry = tk.Entry(root, width=50)
         self.proxy_entry.pack()
 
-        # Default free proxies (Example: replace these with valid proxies)
-        self.default_proxies = [
-            "http://51.15.221.37:9999",  # Replace with actual proxy
-            "http://51.15.221.38:9999"   # Another proxy example
-        ]
+        # Default free proxy (example from ProxyScrape or a similar service)
+        self.default_proxy = "http://51.15.221.37:9999"  # Replace with any free proxy URL
 
         # Define and store checkbox variables
         self.sql_var = tk.BooleanVar(value=True)
@@ -58,6 +56,10 @@ class VulnerabilityScannerGUI:
         self.save_button = tk.Button(root, text="Save Results", command=self.save_results)
         self.save_button.pack()
 
+        # Add a button to display proxy resources information
+        self.proxy_info_button = tk.Button(root, text="Proxy Resources", command=self.show_proxy_resources)
+        self.proxy_info_button.pack(pady=5)
+
         self.results = []
 
     def display_results(self, results):
@@ -74,7 +76,7 @@ class VulnerabilityScannerGUI:
             messagebox.showerror("Input Error", "Please enter a valid URL.")
             return
 
-        proxy = self.proxy_entry.get().strip() or random.choice(self.default_proxies)  # Use random default proxy
+        proxy = self.proxy_entry.get().strip() or self.default_proxy  # Use default proxy if input is empty
         selected_scans = []
         if self.sql_var.get(): selected_scans.append(scan_sql_injection)
         if self.xss_var.get(): selected_scans.append(scan_xss)
@@ -95,11 +97,8 @@ class VulnerabilityScannerGUI:
         self.results.clear()
         async with aiohttp.ClientSession() as session:
             for scan in selected_scans:
-                try:
-                    scan_results = await scan(session, url, proxy)
-                    self.results.extend(scan_results)
-                except Exception as e:
-                    self.results.append((url, f"Error during {scan.__name__}: {str(e)}"))
+                scan_results = await scan(session, url, proxy)
+                self.results.extend(scan_results)
         self.display_results(self.results)
         self.progress_bar.stop()
 
@@ -116,6 +115,64 @@ class VulnerabilityScannerGUI:
             for url, msg in self.results:
                 f.write(f"[!] {msg} at {url}\n")
         messagebox.showinfo("Saved", f"Results saved to {file_path}")
+
+    def show_proxy_resources(self):
+        proxy_info = """
+1. Free Proxies (Public Proxies):
+   - Us-Proxy.org (https://www.us-proxy.org/)
+   - ProxyScrape (https://www.proxyscrape.com/)
+   - Spys.one (https://spys.one/)
+
+2. Premium Proxies:
+   - Bright Data (formerly Luminati) (https://brightdata.com/)
+   - Smartproxy (https://smartproxy.com/)
+   - Oxylabs (https://oxylabs.io/)
+
+3. Rotating Proxies:
+   - ScraperAPI (https://www.scraperapi.com/)
+   - GeoSurf (https://www.geosurf.com/)
+
+4. VPN as Proxy:
+   - NordVPN (https://nordvpn.com/)
+   - ExpressVPN (https://www.expressvpn.com/)
+
+5. SOCKS5 Proxies:
+   - ProxyMesh (https://www.proxymesh.com/)
+   - MyPrivateProxy (https://www.myprivateproxy.net/)
+
+6. Free Anonymous Proxy Servers:
+   - Hide.me (https://hide.me/en/proxy)
+   - KProxy (https://www.kproxy.com/)
+        """
+
+        # Create a new window to display the proxy information
+        proxy_window = tk.Toplevel(self.root)
+        proxy_window.title("Proxy Resources")
+
+        # Add a scrollable text widget to display the proxy resources
+        proxy_text = scrolledtext.ScrolledText(proxy_window, height=20, width=80)
+        proxy_text.insert(tk.END, proxy_info)
+        proxy_text.config(state=tk.DISABLED)  # Make the text widget read-only
+        proxy_text.pack(padx=10, pady=10)
+
+        # Add clickable links
+        self.add_hyperlinks(proxy_text, proxy_info)
+
+        # Add a close button
+        close_button = tk.Button(proxy_window, text="Close", command=proxy_window.destroy)
+        close_button.pack(pady=5)
+
+    def add_hyperlinks(self, text_widget, text_content):
+        """
+        This function adds clickable links in the text widget.
+        """
+        for line in text_content.splitlines():
+            if "http" in line:
+                start = text_widget.index(tk.END)
+                text_widget.insert(tk.END, line + '\n')
+                text_widget.tag_add("hyperlink", start, text_widget.index(tk.END))
+                text_widget.tag_config("hyperlink", foreground="blue", underline=True)
+                text_widget.tag_bind("hyperlink", "<Button-1>", lambda e, url=line.split('(')[-1][:-1]: webbrowser.open(url))
 
 if __name__ == "__main__":
     root = tk.Tk()
