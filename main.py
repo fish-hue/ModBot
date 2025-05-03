@@ -6,6 +6,16 @@ from scan_modules.sql_injection import scan_sql_injection
 from scan_modules.xss import scan_xss
 from scan_modules.cmdi import scan_cmdi
 from scan_modules.traversal import scan_traversal
+from scan_modules.idor import scan_idor
+
+async def main_scan(url, session):
+    results = []
+    if should_scan_idor:  # Assuming should_scan_idor is determined by user input in the GUI or CLI
+        idor_results = await scan_idor(session, url)
+        results.extend(idor_results)
+
+    # Include other scans (XSS, SQLi, etc.)
+    return results
 
 async def run_scans(url):
     async with aiohttp.ClientSession() as session:
