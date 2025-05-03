@@ -49,8 +49,15 @@ class VulnerabilityScannerGUI:
         tk.Checkbutton(root, text="Directory Traversal", variable=self.traversal_var).pack()
         tk.Checkbutton(root, text="Broken Access Control (IDOR)", variable=self.idor_var).pack()
 
-        self.scan_button = tk.Button(root, text="Start Scan", command=self.start_scan)
-        self.scan_button.pack(pady=5)
+        # Frame to hold Start and Stop buttons
+        button_frame = tk.Frame(root)
+        button_frame.pack(pady=5)
+
+        self.scan_button = tk.Button(button_frame, text="Start Scan", command=self.start_scan)
+        self.scan_button.pack(side=tk.LEFT, padx=5)
+
+        self.stop_button = tk.Button(button_frame, text="Stop Scan", command=self.stop_scan, state=tk.DISABLED)
+        self.stop_button.pack(side=tk.LEFT, padx=5)
 
         self.result_box = scrolledtext.ScrolledText(root, height=15, width=80)
         self.result_box.pack()
@@ -74,6 +81,7 @@ class VulnerabilityScannerGUI:
         self.software_integrity_button.pack(pady=5)
 
         self.results = []
+        self._stop_scan_flag = asyncio.Event() # Use asyncio.Event for asynchronous stopping
 
     def check_integrity(self):
         file_path = filedialog.askopenfilename(title="Select a file to check integrity")
@@ -129,16 +137,46 @@ class VulnerabilityScannerGUI:
         self.result_box.insert(tk.END, "[*] Scanning...\n")
         self.progress_bar.start()
 
-        asyncio.run(self.run_scan(url, selected_scans, proxy))
+        # Enable Stop button, Disable Start button
+        self.scan_button.config(state=tk.DISABLED)
+        self.stop_button.config(state=tk.NORMAL)
+        self._stop_scan_flag.clear() # Clear the stop flag for a new scan
+
+        # Run the scan in a separate thread or process to keep the GUI responsive
+        # For simplicity, we'll use asyncio.run, but for long-running tasks,
+        # consider using threading or multiprocessing to avoid blocking the GUI.
+        # A better approach with asyncio would involve integrating the scan
+        # into the Tkinter event loop, which is more complex.
+        # For now, let's stick to asyncio.run and handle the stop flag.
+        self.root.after(0, lambda: asyncio.run(self.run_scan(url, selected_scans, proxy)))
+
+    def stop_scan(self):
+        self.result_box.insert(tk.END, "\n[*] Stopping scan...\n")
+        self._stop_scan_flag.set() # Set the stop flag
 
     async def run_scan(self, url, selected_scans, proxy):
         self.results.clear()
         async with aiohttp.ClientSession() as session:
             for scan in selected_scans:
-                scan_results = await scan(session, url, proxy)
+                # Check the stop flag before starting each scan module
+                if self._stop_scan_flag.is_set():
+                    self.result_box.insert(tk.END, "[*] Scan stopped by user.\n")
+                    break # Exit the loop if stop is requested
+
+                scan_results = await scan(session, url, proxy, stop_event=self._stop_scan_flag) # Pass the stop event
                 self.results.extend(scan_results)
+
+                # Check the stop flag again after a scan module completes
+                if self._stop_scan_flag.is_set():
+                    self.result_box.insert(tk.END, "[*] Scan stopped by user.\n")
+                    break # Exit the loop if stop is requested
+
         self.display_results(self.results)
         self.progress_bar.stop()
+
+        # Disable Stop button, Enable Start button
+        self.scan_button.config(state=tk.NORMAL)
+        self.stop_button.config(state=tk.DISABLED)
 
     def save_results(self):
         if not self.results:
@@ -229,7 +267,7 @@ def crawl_for_files(url, file_extensions=[".pdf", ".mp3", ".jpeg", ".jpg", ".png
 
     except Exception as e:
         print(f"Error crawling {url}: {e}")
-    
+
     return files
 
 if __name__ == "__main__":
