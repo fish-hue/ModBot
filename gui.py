@@ -3,6 +3,7 @@ from tkinter import messagebox, scrolledtext, filedialog
 from tkinter import ttk  # for Progressbar
 import asyncio
 import aiohttp
+import random
 
 from scan_modules.sql_injection import scan_sql_injection
 from scan_modules.xss import scan_xss
@@ -25,6 +26,12 @@ class VulnerabilityScannerGUI:
 
         self.proxy_entry = tk.Entry(root, width=50)
         self.proxy_entry.pack()
+
+        # Default free proxies (Example: replace these with valid proxies)
+        self.default_proxies = [
+            "http://51.15.221.37:9999",  # Replace with actual proxy
+            "http://51.15.221.38:9999"   # Another proxy example
+        ]
 
         # Define and store checkbox variables
         self.sql_var = tk.BooleanVar(value=True)
@@ -63,11 +70,11 @@ class VulnerabilityScannerGUI:
 
     def start_scan(self):
         url = self.url_entry.get().strip()
-        proxy = self.proxy_entry.get().strip() or None
         if not url:
             messagebox.showerror("Input Error", "Please enter a valid URL.")
             return
 
+        proxy = self.proxy_entry.get().strip() or random.choice(self.default_proxies)  # Use random default proxy
         selected_scans = []
         if self.sql_var.get(): selected_scans.append(scan_sql_injection)
         if self.xss_var.get(): selected_scans.append(scan_xss)
@@ -82,7 +89,6 @@ class VulnerabilityScannerGUI:
         self.result_box.insert(tk.END, "[*] Scanning...\n")
         self.progress_bar.start()
 
-        # Start the async scan
         asyncio.run(self.run_scan(url, selected_scans, proxy))
 
     async def run_scan(self, url, selected_scans, proxy):
