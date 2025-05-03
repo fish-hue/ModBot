@@ -34,7 +34,7 @@ async def scan_traversal(session, url, save_to_file=False):
     
     return results
 
-async def scan_single_traversal(session, url, payload):
+async def scan_single_traversal(session, url, proxy, payload):
     test_url = f"{url}?file={payload}"
     try:
         async with session.get(test_url, timeout=10) as response:
