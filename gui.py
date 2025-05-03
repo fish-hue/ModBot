@@ -4,12 +4,17 @@ from tkinter import ttk  # for Progressbar
 import webbrowser
 import asyncio
 import aiohttp
+import hashlib
+import requests
+from bs4 import BeautifulSoup
+from urllib.parse import urljoin
 
 from scan_modules.sql_injection import scan_sql_injection
 from scan_modules.xss import scan_xss
 from scan_modules.cmdi import scan_cmdi
 from scan_modules.traversal import scan_traversal
 from scan_modules.idor import scan_idor
+from integrity_check import check_file_integrity, check_software_integrity  # Import the functions
 
 
 class VulnerabilityScannerGUI:
@@ -60,7 +65,40 @@ class VulnerabilityScannerGUI:
         self.proxy_info_button = tk.Button(root, text="Proxy Resources", command=self.show_proxy_resources)
         self.proxy_info_button.pack(pady=5)
 
+        # Add a button to check file integrity
+        self.integrity_button = tk.Button(root, text="Check File Integrity", command=self.check_integrity)
+        self.integrity_button.pack(pady=5)
+
+        # Add a button to check software version integrity
+        self.software_integrity_button = tk.Button(root, text="Check Software Integrity", command=self.check_software_integrity)
+        self.software_integrity_button.pack(pady=5)
+
         self.results = []
+
+    def check_integrity(self):
+        file_path = filedialog.askopenfilename(title="Select a file to check integrity")
+        if not file_path:
+            return
+
+        # Example expected hash for demonstration (you would replace this with actual expected hashes)
+        expected_hash = 'd2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2'
+
+        result = check_file_integrity(file_path, expected_hash, hash_algorithm='sha256')
+        if result:
+            messagebox.showinfo("Integrity Check", "File integrity is valid!")
+        else:
+            messagebox.showerror("Integrity Check", "File integrity is compromised!")
+
+    def check_software_integrity(self):
+        # Example expected version for software (you would replace with actual software version)
+        installed_version = '1.0.0'
+        expected_version = '1.0.0'
+
+        result = check_software_integrity(expected_version, installed_version)
+        if result:
+            messagebox.showinfo("Software Integrity", "Software version is correct.")
+        else:
+            messagebox.showerror("Software Integrity", "Software version mismatch!")
 
     def display_results(self, results):
         self.result_box.delete(1.0, tk.END)
@@ -173,6 +211,26 @@ class VulnerabilityScannerGUI:
                 text_widget.tag_add("hyperlink", start, text_widget.index(tk.END))
                 text_widget.tag_config("hyperlink", foreground="blue", underline=True)
                 text_widget.tag_bind("hyperlink", "<Button-1>", lambda e, url=line.split('(')[-1][:-1]: webbrowser.open(url))
+
+# Your file integrity check function
+def crawl_for_files(url, file_extensions=[".pdf", ".mp3", ".jpeg", ".jpg", ".png"]):
+    files = []
+    try:
+        response = requests.get(url)
+        soup = BeautifulSoup(response.content, "html.parser")
+
+        # Find all anchor tags (<a>) with href attributes
+        for link in soup.find_all("a", href=True):
+            href = link['href']
+            # Check if the link ends with a file extension
+            if any(href.endswith(ext) for ext in file_extensions):
+                full_url = urljoin(url, href)
+                files.append(full_url)
+
+    except Exception as e:
+        print(f"Error crawling {url}: {e}")
+    
+    return files
 
 if __name__ == "__main__":
     root = tk.Tk()
