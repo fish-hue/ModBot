@@ -81,7 +81,7 @@ class VulnerabilityScannerGUI:
         self.software_integrity_button.pack(pady=5)
 
         self.results = []
-        self._stop_scan_flag = asyncio.Event() # Use asyncio.Event for asynchronous stopping
+        self._stop_scan_flag = asyncio.Event()  # Use asyncio.Event for asynchronous stopping
 
     def check_integrity(self):
         file_path = filedialog.askopenfilename(title="Select a file to check integrity")
@@ -122,7 +122,7 @@ class VulnerabilityScannerGUI:
             messagebox.showerror("Input Error", "Please enter a valid URL.")
             return
 
-        proxy = self.proxy_entry.get().strip() or self.default_proxy  # Use default proxy if input is empty
+        proxy = self.proxy_entry.get().strip() or self.default_proxy
         selected_scans = []
         if self.sql_var.get(): selected_scans.append(scan_sql_injection)
         if self.xss_var.get(): selected_scans.append(scan_xss)
@@ -140,19 +140,34 @@ class VulnerabilityScannerGUI:
         # Enable Stop button, Disable Start button
         self.scan_button.config(state=tk.DISABLED)
         self.stop_button.config(state=tk.NORMAL)
-        self._stop_scan_flag.clear() # Clear the stop flag for a new scan
+        self._stop_scan_flag.clear()  # Clear the stop flag for a new scan
 
-        # Run the scan in a separate thread or process to keep the GUI responsive
-        # For simplicity, we'll use asyncio.run, but for long-running tasks,
-        # consider using threading or multiprocessing to avoid blocking the GUI.
-        # A better approach with asyncio would involve integrating the scan
-        # into the Tkinter event loop, which is more complex.
-        # For now, let's stick to asyncio.run and handle the stop flag.
-        self.root.after(0, lambda: asyncio.run(self.run_scan(url, selected_scans, proxy)))
+        # Use create_task instead of asyncio.run to avoid the issue with Tkinter's event loop
+        loop = asyncio.get_event_loop()
+        loop.create_task(self.run_scan(url, selected_scans, proxy))
 
     def stop_scan(self):
         self.result_box.insert(tk.END, "\n[*] Stopping scan...\n")
-        self._stop_scan_flag.set() # Set the stop flag
+        self._stop_scan_flag.set()  # Set the stop flag
+
+    async def scan_single_cmdi(session, test_url, payload, results, stop_event=None):
+        if stop_event and stop_event.is_set():
+            return
+
+        try:
+            async with session.get(test_url, timeout=10) as response:
+                if stop_event and stop_event.is_set():
+                    return
+                text = await response.text()
+                if response.status == 200:
+                    if "uid=" in text or "root" in text:
+                        results.append((test_url, "Possible Command Injection"))
+                else:
+                    logging.warning(f"Request error for {test_url}: {response.status}")
+        except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+            logging.error(f"Error fetching {test_url}: {e}")
+        except Exception as e:
+            logging.error(f"Unexpected error with {test_url}: {e}")
 
     async def run_scan(self, url, selected_scans, proxy):
         self.results.clear()
@@ -161,15 +176,15 @@ class VulnerabilityScannerGUI:
                 # Check the stop flag before starting each scan module
                 if self._stop_scan_flag.is_set():
                     self.result_box.insert(tk.END, "[*] Scan stopped by user.\n")
-                    break # Exit the loop if stop is requested
+                    break  # Exit the loop if stop is requested
 
-                scan_results = await scan(session, url, proxy, stop_event=self._stop_scan_flag) # Pass the stop event
+                scan_results = await scan(session, url, proxy, stop_event=self._stop_scan_flag)  # Pass the stop event
                 self.results.extend(scan_results)
 
                 # Check the stop flag again after a scan module completes
                 if self._stop_scan_flag.is_set():
                     self.result_box.insert(tk.END, "[*] Scan stopped by user.\n")
-                    break # Exit the loop if stop is requested
+                    break  # Exit the loop if stop is requested
 
         self.display_results(self.results)
         self.progress_bar.stop()
