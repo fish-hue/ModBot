@@ -246,59 +246,30 @@ class VulnerabilityScannerGUI:
         close_button = tk.Button(proxy_window, text="Close", command=proxy_window.destroy)
         close_button.pack(pady=5)
 
+    async def run_crawl_for_files(self, url):
+        file_links = await crawl_for_files(url)
+
+        self.progress_bar.stop()
+
+        if file_links:
+            self.result_box.insert(tk.END, f"[+] Found {len(file_links)} downloadable file(s):\n")
+            for link in file_links:
+                self.result_box.insert(tk.END, f"    {link}\n")
+        else:
+            self.result_box.insert(tk.END, "[+] No downloadable files found.\n")
+
     def crawl_for_downloadable_files(self):
         url = self.url_entry.get().strip()
         if not url:
             messagebox.showerror("Input Error", "Please enter a valid URL.")
             return
-        
+
         self.result_box.insert(tk.END, "[*] Crawling for downloadable files...\n")
         self.progress_bar.start()
 
-        # Call the crawl_for_files method asynchronously
+        # Call the run_crawl_for_files method asynchronously
         loop = asyncio.get_event_loop()
         loop.create_task(self.run_crawl_for_files(url))
-
-    def add_hyperlinks(self, text_widget, text_content):
-        """
-        This function adds clickable links in the text widget.
-        """
-        for line in text_content.splitlines():
-            if "http" in line:
-                start = text_widget.index(tk.END)
-                text_widget.insert(tk.END, line + '\n')
-                text_widget.tag_add("hyperlink", start, text_widget.index(tk.END))
-                text_widget.tag_config("hyperlink", foreground="blue", underline=True)
-                text_widget.tag_bind("hyperlink", "<Button-1>", lambda e, url=line.split('(')[-1][:-1]: webbrowser.open(url))
-
-# Your file integrity check function
-async def crawl_for_files(url, file_extensions=None):
-    if file_extensions is None:
-        file_extensions = [
-            ".pdf", ".mp3", ".jpeg", ".jpg", ".png", ".txt", ".zip", ".tar", ".gz", 
-            ".rar", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx", ".csv", 
-            ".json", ".xml", ".apk", ".exe", ".tar.gz", ".7z", ".mp4", ".mkv", 
-            ".avi", ".webm", ".flv", ".bmp", ".svg", ".css", ".js"
-        ]
-
-    files = []
-    try:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(url) as response:
-                soup = BeautifulSoup(await response.text(), "html.parser")
-
-                # Find all anchor tags (<a>) with href attributes
-                for link in soup.find_all("a", href=True):
-                    href = link['href']
-                    # Check if the link ends with any of the specified file extensions
-                    if any(href.endswith(ext) for ext in file_extensions):
-                        full_url = urljoin(url, href)
-                        files.append(full_url)
-
-    except Exception as e:
-        print(f"Error crawling {url}: {e}")
-
-    return files
 
 if __name__ == "__main__":
     root = tk.Tk()
