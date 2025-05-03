@@ -6,6 +6,7 @@ import asyncio
 import aiohttp
 import hashlib
 import requests
+import logging  # Import logging to handle errors
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin
 
@@ -148,26 +149,8 @@ class VulnerabilityScannerGUI:
 
     def stop_scan(self):
         self.result_box.insert(tk.END, "\n[*] Stopping scan...\n")
-        self._stop_scan_flag.set()  # Set the stop flag
-
-    async def scan_single_cmdi(session, test_url, payload, results, stop_event=None):
-        if stop_event and stop_event.is_set():
-            return
-
-        try:
-            async with session.get(test_url, timeout=10) as response:
-                if stop_event and stop_event.is_set():
-                    return
-                text = await response.text()
-                if response.status == 200:
-                    if "uid=" in text or "root" in text:
-                        results.append((test_url, "Possible Command Injection"))
-                else:
-                    logging.warning(f"Request error for {test_url}: {response.status}")
-        except (aiohttp.ClientError, asyncio.TimeoutError) as e:
-            logging.error(f"Error fetching {test_url}: {e}")
-        except Exception as e:
-            logging.error(f"Unexpected error with {test_url}: {e}")
+        self._stop_scan_flag.set()  # Set the stop flag to stop the scan
+        self.progress_bar.stop()  # Ensure the progress bar stops immediately
 
     async def run_scan(self, url, selected_scans, proxy):
         self.results.clear()
@@ -223,18 +206,12 @@ class VulnerabilityScannerGUI:
    - ScraperAPI (https://www.scraperapi.com/)
    - GeoSurf (https://www.geosurf.com/)
 
-4. VPN as Proxy:
+4. VPN-based Proxies:
    - NordVPN (https://nordvpn.com/)
    - ExpressVPN (https://www.expressvpn.com/)
-
-5. SOCKS5 Proxies:
-   - ProxyMesh (https://www.proxymesh.com/)
-   - MyPrivateProxy (https://www.myprivateproxy.net/)
-
-6. Free Anonymous Proxy Servers:
-   - Hide.me (https://hide.me/en/proxy)
-   - KProxy (https://www.kproxy.com/)
-        """
+"""
+        webbrowser.open("https://www.proxyscrape.com/")  # Open proxy website for the user
+        messagebox.showinfo("Proxy Resources", proxy_info)
 
         # Create a new window to display the proxy information
         proxy_window = tk.Toplevel(self.root)
@@ -266,19 +243,28 @@ class VulnerabilityScannerGUI:
                 text_widget.tag_bind("hyperlink", "<Button-1>", lambda e, url=line.split('(')[-1][:-1]: webbrowser.open(url))
 
 # Your file integrity check function
-def crawl_for_files(url, file_extensions=[".pdf", ".mp3", ".jpeg", ".jpg", ".png"]):
+async def crawl_for_files(url, file_extensions=None):
+    if file_extensions is None:
+        file_extensions = [
+            ".pdf", ".mp3", ".jpeg", ".jpg", ".png", ".txt", ".zip", ".tar", ".gz", 
+            ".rar", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx", ".csv", 
+            ".json", ".xml", ".apk", ".exe", ".tar.gz", ".7z", ".mp4", ".mkv", 
+            ".avi", ".webm", ".flv", ".bmp", ".svg", ".css", ".js"
+        ]
+
     files = []
     try:
-        response = requests.get(url)
-        soup = BeautifulSoup(response.content, "html.parser")
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url) as response:
+                soup = BeautifulSoup(await response.text(), "html.parser")
 
-        # Find all anchor tags (<a>) with href attributes
-        for link in soup.find_all("a", href=True):
-            href = link['href']
-            # Check if the link ends with a file extension
-            if any(href.endswith(ext) for ext in file_extensions):
-                full_url = urljoin(url, href)
-                files.append(full_url)
+                # Find all anchor tags (<a>) with href attributes
+                for link in soup.find_all("a", href=True):
+                    href = link['href']
+                    # Check if the link ends with any of the specified file extensions
+                    if any(href.endswith(ext) for ext in file_extensions):
+                        full_url = urljoin(url, href)
+                        files.append(full_url)
 
     except Exception as e:
         print(f"Error crawling {url}: {e}")
