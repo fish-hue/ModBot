@@ -81,6 +81,10 @@ class VulnerabilityScannerGUI:
         self.software_integrity_button = tk.Button(root, text="Check Software Integrity", command=self.check_software_integrity)
         self.software_integrity_button.pack(pady=5)
 
+        # Add a button to crawl for downloadable files
+        self.crawl_files_button = tk.Button(root, text="Crawl for Downloadable Files", command=self.crawl_for_downloadable_files)
+        self.crawl_files_button.pack(pady=5)
+        
         self.results = []
         self._stop_scan_flag = asyncio.Event()  # Use asyncio.Event for asynchronous stopping
 
@@ -176,6 +180,18 @@ class VulnerabilityScannerGUI:
         self.scan_button.config(state=tk.NORMAL)
         self.stop_button.config(state=tk.DISABLED)
 
+    async def run_crawl_for_files(self, url):
+        file_links = await crawl_for_files(url)
+        
+        self.progress_bar.stop()
+        
+        if file_links:
+            self.result_box.insert(tk.END, f"[+] Found {len(file_links)} downloadable file(s):\n")
+            for link in file_links:
+                self.result_box.insert(tk.END, f"    {link}\n")
+        else:
+            self.result_box.insert(tk.END, "[+] No downloadable files found.\n")
+
     def save_results(self):
         if not self.results:
             messagebox.showwarning("No Results", "There are no results to save.")
@@ -229,6 +245,19 @@ class VulnerabilityScannerGUI:
         # Add a close button
         close_button = tk.Button(proxy_window, text="Close", command=proxy_window.destroy)
         close_button.pack(pady=5)
+
+    def crawl_for_downloadable_files(self):
+        url = self.url_entry.get().strip()
+        if not url:
+            messagebox.showerror("Input Error", "Please enter a valid URL.")
+            return
+        
+        self.result_box.insert(tk.END, "[*] Crawling for downloadable files...\n")
+        self.progress_bar.start()
+
+        # Call the crawl_for_files method asynchronously
+        loop = asyncio.get_event_loop()
+        loop.create_task(self.run_crawl_for_files(url))
 
     def add_hyperlinks(self, text_widget, text_content):
         """
