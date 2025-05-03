@@ -8,6 +8,35 @@ from scan_modules.sql_injection import scan_sql_injection
 from scan_modules.xss import scan_xss
 from scan_modules.cmdi import scan_cmdi
 from scan_modules.traversal import scan_traversal
+from tkinter import *
+from scan_modules.idor import scan_idor
+
+class ScannerApp:
+    def __init__(self, master):
+        self.master = master
+        self.master.title("Vulnerability Scanner")
+
+        # Add the checkbox for Broken Access Control scanning
+        self.idor_var = BooleanVar()
+        self.idor_checkbox = Checkbutton(self.master, text="Check for Broken Access Control (IDOR)", variable=self.idor_var)
+        self.idor_checkbox.grid(row=6, column=0, sticky=W)
+
+        # Your existing elements like start button, URL entry, etc.
+        # Example start scan button:
+        self.start_button = Button(self.master, text="Start Scan", command=self.start_scan)
+        self.start_button.grid(row=7, column=0)
+
+    def start_scan(self):
+        url = self.url_entry.get()  # Get URL input from user
+        # Other scanning logic...
+
+        if self.idor_var.get():  # Check if IDOR checkbox is selected
+            results = await scan_idor(session, url)  # Running the IDOR scan
+            self.display_results(results)
+
+    def display_results(self, results):
+        for result in results:
+            self.results_listbox.insert(END, result)  # Assuming you have a listbox to show results
 
 class VulnerabilityScannerGUI:
     def __init__(self, root):
